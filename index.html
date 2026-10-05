@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Campo&Dados — Plataforma de Dados de Pesquisa</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.27.0/plotly.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --fundo:#F2F4F1; --papel:#FFFFFF; --tinta:#17251D; --suave:#5D6B63; --linha:#DCE2DB;
+  --mata:#1D3A2A; --mata2:#25493A; --campo:#2F6B45; --campo-claro:#E4EFE7;
+  --solo:#8A5A3B; --solo-claro:#F3E9E1; --ceu:#3B6890; --ceu-claro:#E4EDF5; --alerta:#A63A2A;
+  --raio:10px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{font-family:"Public Sans",Arial,Helvetica,sans-serif;background:var(--fundo);color:var(--tinta);font-size:14.5px;line-height:1.5;font-variant-numeric:tabular-nums}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--ceu);outline-offset:2px}
+
+/* ---------- Login ---------- */
+#login{min-height:100%;display:grid;grid-template-columns:1.1fr 1fr}
+@media(max-width:860px){#login{grid-template-columns:1fr}.login-arte{display:none}}
+.login-arte{background:var(--mata);color:#fff;padding:48px;display:flex;flex-direction:column;justify-content:space-between;position:relative;overflow:hidden}
+.login-arte svg.parcelas{position:absolute;top:120px;right:-60px;width:520px;opacity:.6}
+.login-arte h2{font-size:34px;line-height:1.15;margin:0 0 14px;max-width:16ch;letter-spacing:-.02em;position:relative}
+.login-arte p{max-width:42ch;opacity:.8;margin:0;position:relative}
+.login-form{display:flex;align-items:center;justify-content:center;padding:32px;background:var(--papel)}
+.login-form form{width:100%;max-width:360px}
+.login-form h1{font-size:24px;margin:24px 0 4px}
+.login-form .sub{color:var(--suave);margin:0 0 24px}
+.fld{display:block;margin-bottom:16px}
+.fld span{display:block;font-size:13px;font-weight:600;margin-bottom:6px}
+.fld input,.fld select{width:100%;padding:10px 12px;border:1px solid var(--linha);border-radius:8px;background:#fff}
+.demo-dica{font-size:12.5px;color:var(--suave);background:var(--fundo);border-radius:8px;padding:10px 12px;margin-top:16px}
+
+/* ---------- Estrutura ---------- */
+#app{display:none;min-height:100%}
+#app.on{display:grid;grid-template-columns:240px 1fr}
+@media(max-width:900px){#app.on{grid-template-columns:minmax(0,1fr)}}
+aside{background:var(--mata);color:#DCE7E0;display:flex;flex-direction:column;padding:20px 14px;position:sticky;top:0;height:100vh}
+@media(max-width:900px){aside{position:static;height:auto;flex-direction:row;flex-wrap:wrap;align-items:center;gap:8px;padding:12px}}
+.logo{display:flex;align-items:center;gap:10px;padding:0 8px 22px;color:#fff;font-weight:700;font-size:17px}
+@media(max-width:900px){.logo{padding:0 8px 0 0}}
+.logo small{display:block;font-weight:400;font-size:11.5px;opacity:.65}
+.menu{display:flex;flex-direction:column;gap:2px}
+@media(max-width:900px){.menu{flex-direction:row;overflow-x:auto;flex:1 1 100%;order:3}}
+.menu button{display:flex;align-items:center;gap:10px;background:none;border:0;color:inherit;padding:10px 12px;border-radius:8px;cursor:pointer;text-align:left;white-space:nowrap}
+.menu button:hover{background:var(--mata2)}
+.menu button[aria-current="page"]{background:var(--campo);color:#fff;font-weight:600}
+.menu svg{width:18px;height:18px;flex:none}
+.conta{margin-top:auto;border-top:1px solid #2F5543;padding-top:14px;display:flex;align-items:center;gap:10px}
+@media(max-width:900px){.conta{margin:0 0 0 auto;border:0;padding:0}}
+.avatar{width:36px;height:36px;border-radius:50%;background:#C9DCCD;color:var(--mata);display:grid;place-items:center;font-weight:700;font-size:13px;flex:none}
+.conta b{display:block;color:#fff;font-size:13.5px;line-height:1.2}
+.conta small{font-size:12px;opacity:.7}
+.sair{margin-left:auto;background:none;border:1px solid #3B6450;color:#DCE7E0;border-radius:6px;padding:5px 10px;font-size:12.5px;cursor:pointer}
+@media(max-width:900px){.conta div{display:none}}
+
+main{padding:28px 32px 40px;min-width:0}
+@media(max-width:600px){main{padding:20px 16px}}
+.topo{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:12px;margin-bottom:22px}
+.topo h1{font-size:24px;margin:0;letter-spacing:-.015em}
+.topo p{margin:2px 0 0;color:var(--suave)}
+.acoes{display:flex;gap:8px;flex-wrap:wrap}
+.pagina{display:none}.pagina.on{display:block}
+
+/* ---------- Componentes ---------- */
+.btn{display:inline-flex;align-items:center;gap:8px;font-weight:600;font-size:14px;border-radius:8px;padding:9px 14px;cursor:pointer;border:1px solid var(--campo);background:var(--campo);color:#fff}
+.btn:hover{background:#285C3B}
+.btn.sec{background:#fff;color:var(--campo);border-color:var(--linha)}
+.btn.sec:hover{border-color:var(--campo)}
+.btn.bloco{width:100%;justify-content:center}
+.btn svg{width:16px;height:16px}
+.cartao{background:var(--papel);border:1px solid var(--linha);border-radius:var(--raio);padding:20px}
+.cartao h3{font-size:15px;margin:0 0 4px}
+.cartao .desc{font-size:13px;color:var(--suave);margin:0 0 14px}
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:18px}
+@media(max-width:1000px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+.kpi strong,.kpi small{overflow-wrap:anywhere}
+aside{min-width:0}
+.kpi{background:var(--papel);border:1px solid var(--linha);border-radius:var(--raio);padding:16px 18px}
+.kpi span{font-size:13px;color:var(--suave)}
+.kpi strong{display:block;font-size:26px;line-height:1.2;margin-top:4px;letter-spacing:-.01em}
+.kpi small{font-size:12.5px;color:var(--suave)}
+.kpi.destaque{border-left:4px solid var(--campo)}
+.duas{display:grid;grid-template-columns:1.5fr 1fr;gap:18px}
+.lado{display:grid;grid-template-columns:280px 1fr;gap:18px;align-items:start}
+@media(max-width:1000px){.duas,.lado{grid-template-columns:minmax(0,1fr)}}
+.tag{display:inline-block;font-size:12px;font-weight:600;border-radius:20px;padding:2px 10px}
+.tag.feita{background:var(--campo-claro);color:var(--campo)}
+.tag.futura{background:var(--ceu-claro);color:var(--ceu)}
+.tag.admin{background:#ECE4F2;color:#5E3E78}
+.tag.gerente{background:var(--solo-claro);color:var(--solo)}
+.tag.usuario{background:var(--fundo);color:var(--suave)}
+.tabela{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{padding:10px 12px;text-align:right;border-bottom:1px solid var(--linha);white-space:nowrap}
+th{font-weight:600;color:var(--suave);font-size:12.5px;background:#F8FAF7}
+th.e,td.e{text-align:left}
+tbody tr:hover{background:#FAFBF9}
+tr.total td{font-weight:700;border-bottom:0}
+td.cv-alto{color:var(--alerta);font-weight:600}
+.nota{font-size:12.5px;color:var(--suave);margin:10px 0 0}
+.ctl-label{display:block;font-size:13px;font-weight:600;margin:16px 0 6px}
+.ctl-label:first-child{margin-top:0}
+select.ctl{width:100%;padding:9px 10px;border:1px solid var(--linha);border-radius:8px;background:#fff}
+.checks{display:flex;flex-wrap:wrap;gap:6px}
+.checks label{display:flex;align-items:center;gap:6px;cursor:pointer;border:1px solid var(--linha);border-radius:20px;padding:4px 10px;font-size:13px;user-select:none}
+.checks label:has(input:checked){background:var(--campo-claro);border-color:var(--campo);color:var(--campo);font-weight:600}
+.checks input{display:none}
+.seg{display:inline-flex;border:1px solid var(--linha);border-radius:8px;overflow:hidden;background:#fff}
+.seg button{border:0;background:none;padding:6px 12px;cursor:pointer;font-size:13px;color:var(--suave)}
+.seg button[aria-pressed="true"]{background:var(--campo);color:#fff;font-weight:600}
+.cab{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
+.so-gerente,.so-admin{display:none!important}
+body.gerente .so-gerente,body.admin .so-gerente,body.admin .so-admin{display:revert!important}
+body.admin .menu button.so-admin{display:flex!important}
+body.gerente .btn.so-gerente,body.admin .btn.so-gerente{display:inline-flex!important}
+#mapa,#mapaMini{border-radius:8px;border:1px solid var(--linha);z-index:0}
+#mapa{height:540px}#mapaMini{height:300px}
+@media(max-width:900px){#mapa{height:380px}}
+.legenda{display:flex;gap:16px;font-size:13px;color:var(--suave);margin-top:10px}
+.legenda i{display:inline-block;width:11px;height:11px;border-radius:50%;margin-right:6px;vertical-align:-1px}
+.camp-lista{list-style:none;margin:0;padding:0;max-height:430px;overflow:auto}
+.camp-lista li{padding:12px 4px;border-bottom:1px solid var(--linha);cursor:pointer}
+.camp-lista li:hover b{color:var(--campo)}
+.camp-lista b{display:block;font-size:14px}
+.camp-lista span{font-size:12.5px;color:var(--suave)}
+.modo-mapa{display:none;background:var(--ceu-claro);color:var(--ceu);border-radius:8px;padding:10px 12px;font-size:13.5px;margin-bottom:10px}
+.prox{display:flex;gap:14px;align-items:center;padding:12px 0;border-bottom:1px solid var(--linha)}
+.prox:last-child{border-bottom:0}
+.data-box{background:var(--ceu-claro);color:var(--ceu);border-radius:8px;width:52px;text-align:center;padding:6px 0;font-weight:700;line-height:1.1;flex:none}
+.data-box small{display:block;font-size:11px;font-weight:600}
+.prox b{display:block;font-size:14px}.prox span{font-size:12.5px;color:var(--suave)}
+
+/* ---------- Modal e aviso ---------- */
+.fundo-modal{position:fixed;inset:0;background:rgba(23,37,29,.45);display:none;align-items:center;justify-content:center;padding:16px;z-index:1000}
+.fundo-modal.on{display:flex}
+.modal{background:#fff;border-radius:12px;padding:24px;width:100%;max-width:440px}
+.modal h3{margin:0 0 4px;font-size:18px}
+.modal .desc{color:var(--suave);font-size:13.5px;margin:0 0 18px}
+.modal .rodape{display:flex;justify-content:flex-end;gap:8px;margin-top:8px}
+#toast{position:fixed;bottom:24px;left:50%;transform:translate(-50%,20px);background:var(--mata);color:#fff;padding:12px 18px;border-radius:8px;font-size:14px;opacity:0;transition:.25s;z-index:1100;pointer-events:none}
+#toast.on{opacity:1;transform:translate(-50%,0)}
+@media(prefers-reduced-motion:reduce){#toast{transition:none}}
+input[type=file]{display:none}
+</style>
+</head>
+<body class="usuario">
+
+<!-- =============== LOGIN =============== -->
+<section id="login">
+  <div class="login-arte">
+    <div class="logo" style="padding:0">
+      <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true"><rect width="34" height="34" rx="8" fill="#2F6B45"/><path d="M17 26V12M17 16c-4-1-6-4-6-7 4 0 6 3 6 7zm0 3c4-1 7-4 7-8-4 0-7 3-7 8z" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round"/><path d="M7 27h20" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>
+      <div>Campo&amp;Dados<small>Plataforma de dados de pesquisa</small></div>
+    </div>
+    <div>
+      <h2>Do campo à estatística, num só lugar.</h2>
+      <p>Planeje campanhas, centralize os dados de solo e vegetação e gere as estatísticas do ensaio em segundos.</p>
+    </div>
+    <svg class="parcelas" viewBox="0 0 560 300" aria-hidden="true" id="arteParcelas"></svg>
+  </div>
+  <div class="login-form">
+    <div id="formLogin">
+      <h1>Entrar</h1>
+      <p class="sub">Acesse com sua conta institucional.</p>
+      <label class="fld"><span>E-mail</span><input type="email" id="email" value="ana@pesquisa.org" required></label>
+      <label class="fld"><span>Senha</span><input type="password" value="demonstracao" required></label>
+      <label class="fld"><span>Perfil de acesso (demonstração)</span>
+        <select id="perfilLogin">
+          <option value="admin">Administrador — Ana Ribeiro</option>
+          <option value="gerente">Gerente — Carlos Mendes</option>
+          <option value="usuario">Usuário — Júlia Santos</option>
+        </select></label>
+      <button class="btn bloco" type="button" id="btnEntrar">Entrar</button>
+      <p class="demo-dica">Esta é uma demonstração. Na versão final o nível de acesso vem da conta de cada pessoa, definido pelo administrador.</p>
+    </div>
+  </div>
+</section>
+
+<!-- =============== APP =============== -->
+<div id="app">
+  <aside>
+    <div class="logo">
+      <svg width="30" height="30" viewBox="0 0 34 34" aria-hidden="true"><rect width="34" height="34" rx="8" fill="#2F6B45"/><path d="M17 26V12M17 16c-4-1-6-4-6-7 4 0 6 3 6 7zm0 3c4-1 7-4 7-8-4 0-7 3-7 8z" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round"/><path d="M7 27h20" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>
+      <div>Campo&amp;Dados<small>Dados de pesquisa</small></div>
+    </div>
+    <nav class="menu">
+      <button data-p="geral" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>Visão geral</button>
+      <button data-p="camp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-6.2-7-11a7 7 0 0114 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>Campanhas de campo</button>
+      <button data-p="analise"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 4v16M18 6v12M12 8v12"/><rect x="4" y="8" width="4" height="7"/><rect x="10" y="11" width="4" height="5"/><rect x="16" y="9" width="4" height="6"/></svg>Solo e vegetação</button>
+      <button data-p="usuarios" class="so-admin"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5"/><path d="M16 4.5a3.5 3.5 0 010 7M18 14.8c2 .7 3.2 2.5 3.5 5.2"/></svg>Usuários</button>
+    </nav>
+    <div class="conta">
+      <span class="avatar" id="avatar">AR</span>
+      <div><b id="nomeUsuario">Ana Ribeiro</b><small id="nivelUsuario">Administrador</small></div>
+      <button class="sair" id="sair">Sair</button>
+    </div>
+  </aside>
+
+  <main>
+    <!-- VISÃO GERAL -->
+    <section class="pagina on" id="p-geral">
+      <div class="topo"><div><h1 id="saudacao">Bom dia</h1><p>Resumo das campanhas e do ensaio mais recente.</p></div></div>
+      <div class="kpis" id="kpisGeral"></div>
+      <div class="duas">
+        <div class="cartao">
+          <h3>Produtividade média por dose de N</h3>
+          <p class="desc">Média ± desvio padrão dos 4 blocos, por espessura do revestimento.</p>
+          <div id="graficoGeral" style="height:320px"></div>
+        </div>
+        <div class="cartao">
+          <h3>Próximas campanhas</h3>
+          <p class="desc">Atividades de campo previstas.</p>
+          <div id="proximas"></div>
+          <div id="mapaMini" style="margin-top:14px;height:200px"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CAMPANHAS -->
+    <section class="pagina" id="p-camp">
+      <div class="topo">
+        <div><h1>Campanhas de campo</h1><p>Campanhas realizadas e previstas, com localização das áreas.</p></div>
+        <div class="acoes">
+          <div class="seg" id="filtroCamp">
+            <button aria-pressed="true" data-f="todas">Todas</button><button aria-pressed="false" data-f="feita">Realizadas</button><button aria-pressed="false" data-f="futura">Previstas</button>
+          </div>
+          <button class="btn so-gerente" id="btnNovaCamp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"/></svg>Nova campanha</button>
+        </div>
+      </div>
+      <div class="lado">
+        <div class="cartao"><ul class="camp-lista" id="listaCamp"></ul></div>
+        <div class="cartao">
+          <div class="modo-mapa" id="modoMapa">Clique no mapa para marcar o local da nova campanha.</div>
+          <div id="mapa"></div>
+          <div class="legenda"><span><i style="background:#2F6B45"></i>Realizada</span><span><i style="background:#3B6890"></i>Prevista</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ANÁLISE -->
+    <section class="pagina" id="p-analise">
+      <div class="topo">
+        <div><h1>Solo e vegetação</h1><p id="introAnalise"></p></div>
+        <div class="acoes">
+          <button class="btn sec so-gerente" id="btnImportar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 15V3M7 8l5-5 5 5M4 15v4a2 2 0 002 2h12a2 2 0 002-2v-4"/></svg>Importar planilha</button>
+          <input type="file" id="arq" accept=".xlsx,.xls,.csv">
+          <button class="btn" id="btnBaixar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12M7 10l5 5 5-5M4 15v4a2 2 0 002 2h12a2 2 0 002-2v-4"/></svg>Baixar estatísticas</button>
+        </div>
+      </div>
+      <div class="lado">
+        <div class="cartao">
+          <label class="ctl-label" for="selVar">Variável</label>
+          <select id="selVar" class="ctl"></select>
+          <label class="ctl-label" for="selGrupo">Agrupar por</label>
+          <select id="selGrupo" class="ctl">
+            <option value="N_rate">Dose de N</option>
+            <option value="Thickness">Espessura do revestimento</option>
+            <option value="Trat">Tratamento (espessura × dose)</option>
+            <option value="Block">Bloco</option>
+          </select>
+          <span class="ctl-label">Espessura</span><div class="checks" id="fEsp"></div>
+          <span class="ctl-label">Blocos</span><div class="checks" id="fBloco"></div>
+          <span class="ctl-label">Doses de N</span><div class="checks" id="fDose"></div>
+        </div>
+        <div>
+          <div class="kpis" id="kpisVar"></div>
+          <div class="cartao">
+            <div class="cab">
+              <div><h3 id="tituloGraf"></h3><p class="desc" id="descGraf"></p></div>
+              <div class="seg" id="tipoGraf"><button aria-pressed="true" data-t="box">Boxplot</button><button aria-pressed="false" data-t="media">Média ± DP</button></div>
+            </div>
+            <div id="grafico" style="height:420px"></div>
+          </div>
+          <div class="cartao" style="margin-top:18px">
+            <h3>Estatística descritiva</h3>
+            <p class="desc">Desvio padrão amostral. CV acima de 20% em vermelho indica alta variabilidade entre parcelas.</p>
+            <div class="tabela"><table id="tabStats"></table></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- USUÁRIOS -->
+    <section class="pagina" id="p-usuarios">
+      <div class="topo">
+        <div><h1>Usuários e permissões</h1><p>Defina quem acessa a plataforma e o que cada pessoa pode fazer.</p></div>
+        <div class="acoes"><button class="btn" id="btnConvidar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"/></svg>Convidar usuário</button></div>
+      </div>
+      <div class="kpis" style="grid-template-columns:repeat(3,1fr)">
+        <div class="kpi"><span>Administrador</span><strong>Acesso total</strong><small>Gerencia usuários e todos os dados</small></div>
+        <div class="kpi"><span>Gerente</span><strong>Edição</strong><small>Cadastra campanhas e importa dados</small></div>
+        <div class="kpi"><span>Usuário</span><strong>Consulta</strong><small>Visualiza dashboards e baixa relatórios</small></div>
+      </div>
+      <div class="cartao tabela"><table><thead><tr><th class="e">Nome</th><th class="e">E-mail</th><th class="e">Nível de acesso</th><th class="e">Último acesso</th></tr></thead><tbody id="tabUsuarios"></tbody></table></div>
+    </section>
+  </main>
+</div>
+
+<!-- Modais -->
+<div class="fundo-modal" id="modalCamp"><div class="modal" id="formCamp">
+  <h3>Nova campanha</h3><p class="desc">O local foi marcado no mapa. Preencha os dados da campanha.</p>
+  <label class="fld"><span>Nome da campanha</span><input id="cNome" required placeholder="Ex.: Amostragem de solo — safra 2026/27"></label>
+  <label class="fld"><span>Período</span><input id="cData" required placeholder="Ex.: Mai/2027"></label>
+  <label class="fld"><span>Status</span><select id="cStatus"><option value="futura">Prevista</option><option value="feita">Realizada</option></select></label>
+  <label class="fld"><span>Descrição</span><input id="cDesc" placeholder="Ex.: coleta 0–20 cm em 30 pontos"></label>
+  <div class="rodape"><button type="button" class="btn sec" data-fechar>Cancelar</button><button type="button" class="btn" id="btnSalvarCamp">Salvar campanha</button></div>
+</div></div>
+<div class="fundo-modal" id="modalUser"><div class="modal" id="formUser">
+  <h3>Convidar usuário</h3><p class="desc">A pessoa recebe um e-mail para criar a senha.</p>
+  <label class="fld"><span>Nome</span><input id="uNome" required></label>
+  <label class="fld"><span>E-mail</span><input id="uEmail" type="email" required></label>
+  <label class="fld"><span>Nível de acesso</span><select id="uNivel"><option value="usuario">Usuário</option><option value="gerente">Gerente</option><option value="admin">Administrador</option></select></label>
+  <div class="rodape"><button type="button" class="btn sec" data-fechar>Cancelar</button><button type="button" class="btn" id="btnEnviarConvite">Enviar convite</button></div>
+</div></div>
+<div id="toast" role="status"></div>
+
+<script>
+let DADOS = [{"Block": 1, "Thickness": "Thin_2mm", "N_rate": "N1", "PlotID": "B1_T_N1", "Soil_NH4": 11.85, "Soil_NO3": 18.46, "Mineral_N": 30.31, "Moisture": 11.86, "pH": 5.71, "EC": 0.16, "Height_cm": 178.08, "Stem_mm": 21.11, "LAI": 2.86, "SPAD": 44.18, "Biomass_MgHa": 7.29, "LeafN_pct": 2.14, "N_uptake": 92.85, "GrainN": 64.17, "EarLen_cm": 16.68, "KernelRows": 14.35, "KernelsPerRow": 30.75, "TKW_g": 5.13, "Yield_MgHa": 21.91, "AgronomicEff": 45.86, "RecoveryEff": 56.64, "PFP": 61.93, "PhysEff": null, "NUE": null}, {"Block": 1, "Thickness": "Thin_2mm", "N_rate": "N2", "PlotID": "B1_T_N2", "Soil_NH4": 17.96, "Soil_NO3": 27.7, "Mineral_N": 45.66, "Moisture": 11.61, "pH": 5.99, "EC": 0.23, "Height_cm": 227.23, "Stem_mm": 26.06, "LAI": 4.01, "SPAD": 51.93, "Biomass_MgHa": 11.63, "LeafN_pct": 2.7, "N_uptake": 138.57, "GrainN": 97.48, "EarLen_cm": 19.6, "KernelRows": 15.19, "KernelsPerRow": 35.19, "TKW_g": 8.09, "Yield_MgHa": 37.01, "AgronomicEff": 65.78, "RecoveryEff": 60.45, "PFP": 58.71, "PhysEff": null, "NUE": null}, {"Block": 1, "Thickness": "Thin_2mm", "N_rate": "N3", "PlotID": "B1_T_N3", "Soil_NH4": 24.51, "Soil_NO3": 33.32, "Mineral_N": 57.83, "Moisture": 11.03, "pH": 6.39, "EC": 0.22, "Height_cm": 250.9, "Stem_mm": 25.86, "LAI": 4.6, "SPAD": 54.32, "Biomass_MgHa": 14.95, "LeafN_pct": 2.87, "N_uptake": 189.53, "GrainN": 132.28, "EarLen_cm": 21.99, "KernelRows": 17.15, "KernelsPerRow": 40.72, "TKW_g": 10.26, "Yield_MgHa": 42.08, "AgronomicEff": 70.09, "RecoveryEff": 58.16, "PFP": 49.85, "PhysEff": null, "NUE": null}, {"Block": 1, "Thickness": "Thin_2mm", "N_rate": "N4", "PlotID": "B1_T_N4", "Soil_NH4": 28.1, "Soil_NO3": 42.82, "Mineral_N": 70.93, "Moisture": 10.71, "pH": 6.49, "EC": 0.26, "Height_cm": 239.2, "Stem_mm": 27.32, "LAI": 5.36, "SPAD": 55.56, "Biomass_MgHa": 14.03, "LeafN_pct": 2.75, "N_uptake": 197.47, "GrainN": 131.96, "EarLen_cm": 20.01, "KernelRows": 16.78, "KernelsPerRow": 43.26, "TKW_g": 10.38, "Yield_MgHa": 42.52, "AgronomicEff": 67.43, "RecoveryEff": 62.62, "PFP": 43.3, "PhysEff": null, "NUE": null}, {"Block": 1, "Thickness": "Thin_2mm", "N_rate": "N5", "PlotID": "B1_T_N5", "Soil_NH4": 36.93, "Soil_NO3": 55.48, "Mineral_N": 92.41, "Moisture": 9.22, "pH": 6.6, "EC": 0.36, "Height_cm": 262.78, "Stem_mm": 24.34, "LAI": 4.84, "SPAD": 56.27, "Biomass_MgHa": 14.01, "LeafN_pct": 3.07, "N_uptake": 208.09, "GrainN": 130.82, "EarLen_cm": 22.69, "KernelRows": 16.44, "KernelsPerRow": 40.69, "TKW_g": 10.16, "Yield_MgHa": 36.14, "AgronomicEff": 60.36, "RecoveryEff": 58.15, "PFP": 33.84, "PhysEff": null, "NUE": null}, {"Block": 1, "Thickness": "Thick_20mm", "N_rate": "N1", "PlotID": "B1_T_N1", "Soil_NH4": 9.79, "Soil_NO3": 15.78, "Mineral_N": 25.57, "Moisture": 12.02, "pH": 5.54, "EC": 0.19, "Height_cm": 187.82, "Stem_mm": 18.58, "LAI": 2.51, "SPAD": 39.73, "Biomass_MgHa": 6.95, "LeafN_pct": 1.97, "N_uptake": 89.9, "GrainN": 62.61, "EarLen_cm": 17.01, "KernelRows": 13.11, "KernelsPerRow": 27.86, "TKW_g": 5.36, "Yield_MgHa": 23.24, "AgronomicEff": 47.98, "RecoveryEff": 55.95, "PFP": 57.41, "PhysEff": null, "NUE": null}, {"Block": 1, "Thickness": "Thick_20mm", "N_rate": "N2", "PlotID": "B1_T_N2", "Soil_NH4": 16.12, "Soil_NO3": 24.69, "Mineral_N": 40.81, "Moisture": 11.89, "pH": 5.98, "EC": 0.22, "Height_cm": 238.01, "Stem_mm": 24.92, "LAI": 4.11, "SPAD": 55.03, "Biomass_MgHa": 12.4, "LeafN_pct": 2.84, "N_uptake": 145.24, "GrainN": 100.93, "EarLen_cm": 19.88, "KernelRows": 14.75, "KernelsPerRow": 37.71, "TKW_g": 9.61, "Yield_MgHa": 34.87, "AgronomicEff": 60.4, "RecoveryEff": 66.8, "PFP": 64.25, "PhysEff": null, "NUE": null}, {"Block": 1, "Thickness": "Thick_20mm", "N_rate": "N3", "PlotID": "B1_T_N3", "Soil_NH4": 22.26, "Soil_NO3": 32.29, "Mineral_N": 54.55, "Moisture": 11.36, "pH": 6.08, "EC": 0.24, "Height_cm": 293.83, "Stem_mm": 27.48, "LAI": 4.86, "SPAD": 54.73, "Biomass_MgHa": 15.33, "LeafN_pct": 3.29, "N_uptake": 166.67, "GrainN": 131.71, "EarLen_cm": 22.58, "KernelRows": 15.07, "KernelsPerRow": 41.86, "TKW_g": 11.21, "Yield_MgHa": 50.05, "AgronomicEff": 75.22, "RecoveryEff": 58.56, "PFP": 56.98, "PhysEff": null, "NUE": null}, {"Block": 1, "Thickness": "Thick_20mm", "N_rate": "N4", "PlotID": "B1_T_N4", "Soil_NH4": 27.52, "Soil_NO3": 43.31, "Mineral_N": 70.83, "Moisture": 11.6, "pH": 5.28, "EC": 0.31, "Height_cm": 245.82, "Stem_mm": 28.96, "LAI": 4.72, "SPAD": 56.49, "Biomass_MgHa": 16.96, "LeafN_pct": 3.32, "N_uptake": 206.96, "GrainN": 150.78, "EarLen_cm": 21.85, "KernelRows": 15.93, "KernelsPerRow": 46.3, "TKW_g": 11.47, "Yield_MgHa": 45.32, "AgronomicEff": 78.47, "RecoveryEff": 57.5, "PFP": 52.29, "PhysEff": null, "NUE": null}, {"Block": 1, "Thickness": "Thick_20mm", "N_rate": "N5", "PlotID": "B1_T_N5", "Soil_NH4": 33.55, "Soil_NO3": 51.34, "Mineral_N": 84.89, "Moisture": 10.35, "pH": 6.27, "EC": 0.34, "Height_cm": 242.92, "Stem_mm": 25.89, "LAI": 5.26, "SPAD": 53.3, "Biomass_MgHa": 15.18, "LeafN_pct": 3.06, "N_uptake": 224.36, "GrainN": 154.56, "EarLen_cm": 23.08, "KernelRows": 15.25, "KernelsPerRow": 43.0, "TKW_g": 10.18, "Yield_MgHa": 43.61, "AgronomicEff": 70.17, "RecoveryEff": 55.42, "PFP": 45.28, "PhysEff": null, "NUE": null}, {"Block": 2, "Thickness": "Thin_2mm", "N_rate": "N1", "PlotID": "B2_T_N1", "Soil_NH4": 12.59, "Soil_NO3": 17.84, "Mineral_N": 30.43, "Moisture": 10.82, "pH": 6.21, "EC": 0.18, "Height_cm": 174.57, "Stem_mm": 20.4, "LAI": 2.86, "SPAD": 45.15, "Biomass_MgHa": 6.83, "LeafN_pct": 2.22, "N_uptake": 98.84, "GrainN": 75.08, "EarLen_cm": 15.86, "KernelRows": 13.48, "KernelsPerRow": 31.53, "TKW_g": 5.63, "Yield_MgHa": 24.15, "AgronomicEff": 51.42, "RecoveryEff": 57.24, "PFP": 53.99, "PhysEff": null, "NUE": null}, {"Block": 2, "Thickness": "Thin_2mm", "N_rate": "N2", "PlotID": "B2_T_N2", "Soil_NH4": 17.65, "Soil_NO3": 24.5, "Mineral_N": 42.15, "Moisture": 12.49, "pH": 5.99, "EC": 0.21, "Height_cm": 234.89, "Stem_mm": 25.0, "LAI": 3.92, "SPAD": 52.25, "Biomass_MgHa": 11.96, "LeafN_pct": 2.95, "N_uptake": 151.51, "GrainN": 105.89, "EarLen_cm": 18.36, "KernelRows": 15.66, "KernelsPerRow": 32.62, "TKW_g": 8.04, "Yield_MgHa": 34.27, "AgronomicEff": 65.31, "RecoveryEff": 59.12, "PFP": 57.96, "PhysEff": null, "NUE": null}, {"Block": 2, "Thickness": "Thin_2mm", "N_rate": "N3", "PlotID": "B2_T_N3", "Soil_NH4": 23.77, "Soil_NO3": 35.95, "Mineral_N": 59.72, "Moisture": 10.67, "pH": 6.07, "EC": 0.3, "Height_cm": 255.56, "Stem_mm": 26.69, "LAI": 5.04, "SPAD": 52.48, "Biomass_MgHa": 14.06, "LeafN_pct": 3.01, "N_uptake": 191.77, "GrainN": 117.46, "EarLen_cm": 20.37, "KernelRows": 16.81, "KernelsPerRow": 41.59, "TKW_g": 10.2, "Yield_MgHa": 46.81, "AgronomicEff": 68.56, "RecoveryEff": 56.46, "PFP": 47.01, "PhysEff": null, "NUE": null}, {"Block": 2, "Thickness": "Thin_2mm", "N_rate": "N4", "PlotID": "B2_T_N4", "Soil_NH4": 29.04, "Soil_NO3": 47.08, "Mineral_N": 76.12, "Moisture": 10.69, "pH": 5.82, "EC": 0.28, "Height_cm": 238.24, "Stem_mm": 26.84, "LAI": 4.71, "SPAD": 54.98, "Biomass_MgHa": 13.67, "LeafN_pct": 3.2, "N_uptake": 187.78, "GrainN": 123.7, "EarLen_cm": 21.97, "KernelRows": 15.78, "KernelsPerRow": 36.43, "TKW_g": 9.85, "Yield_MgHa": 42.61, "AgronomicEff": 64.49, "RecoveryEff": 60.26, "PFP": 43.57, "PhysEff": null, "NUE": null}, {"Block": 2, "Thickness": "Thin_2mm", "N_rate": "N5", "PlotID": "B2_T_N5", "Soil_NH4": 37.2, "Soil_NO3": 54.88, "Mineral_N": 92.08, "Moisture": 10.67, "pH": 6.4, "EC": 0.35, "Height_cm": 229.33, "Stem_mm": 28.21, "LAI": 5.33, "SPAD": 53.2, "Biomass_MgHa": 15.04, "LeafN_pct": 3.4, "N_uptake": 180.59, "GrainN": 143.28, "EarLen_cm": 23.54, "KernelRows": 15.26, "KernelsPerRow": 42.41, "TKW_g": 10.94, "Yield_MgHa": 34.79, "AgronomicEff": 61.68, "RecoveryEff": 57.48, "PFP": 33.41, "PhysEff": null, "NUE": null}, {"Block": 2, "Thickness": "Thick_20mm", "N_rate": "N1", "PlotID": "B2_T_N1", "Soil_NH4": 9.96, "Soil_NO3": 15.22, "Mineral_N": 25.18, "Moisture": 12.5, "pH": 5.79, "EC": 0.17, "Height_cm": 166.11, "Stem_mm": 18.66, "LAI": 2.82, "SPAD": 40.2, "Biomass_MgHa": 6.7, "LeafN_pct": 1.92, "N_uptake": 95.2, "GrainN": 69.76, "EarLen_cm": 16.51, "KernelRows": 12.18, "KernelsPerRow": 29.9, "TKW_g": 5.32, "Yield_MgHa": 23.85, "AgronomicEff": 46.98, "RecoveryEff": 54.81, "PFP": 58.49, "PhysEff": null, "NUE": null}, {"Block": 2, "Thickness": "Thick_20mm", "N_rate": "N2", "PlotID": "B2_T_N2", "Soil_NH4": 14.44, "Soil_NO3": 25.24, "Mineral_N": 39.68, "Moisture": 12.19, "pH": 5.69, "EC": 0.24, "Height_cm": 259.53, "Stem_mm": 22.32, "LAI": 3.87, "SPAD": 50.73, "Biomass_MgHa": 12.31, "LeafN_pct": 2.84, "N_uptake": 140.79, "GrainN": 111.71, "EarLen_cm": 19.99, "KernelRows": 14.1, "KernelsPerRow": 34.51, "TKW_g": 9.55, "Yield_MgHa": 41.98, "AgronomicEff": 69.83, "RecoveryEff": 68.67, "PFP": 60.25, "PhysEff": null, "NUE": null}, {"Block": 2, "Thickness": "Thick_20mm", "N_rate": "N3", "PlotID": "B2_T_N3", "Soil_NH4": 22.29, "Soil_NO3": 29.44, "Mineral_N": 51.72, "Moisture": 10.59, "pH": 5.98, "EC": 0.26, "Height_cm": 252.47, "Stem_mm": 26.83, "LAI": 5.11, "SPAD": 56.04, "Biomass_MgHa": 15.99, "LeafN_pct": 3.33, "N_uptake": 189.87, "GrainN": 140.33, "EarLen_cm": 21.55, "KernelRows": 15.34, "KernelsPerRow": 40.69, "TKW_g": 10.7, "Yield_MgHa": 47.74, "AgronomicEff": 70.55, "RecoveryEff": 64.0, "PFP": 58.51, "PhysEff": null, "NUE": null}, {"Block": 2, "Thickness": "Thick_20mm", "N_rate": "N4", "PlotID": "B2_T_N4", "Soil_NH4": 27.81, "Soil_NO3": 39.36, "Mineral_N": 67.17, "Moisture": 11.23, "pH": 6.42, "EC": 0.3, "Height_cm": 262.49, "Stem_mm": 28.63, "LAI": 4.85, "SPAD": 50.69, "Biomass_MgHa": 16.05, "LeafN_pct": 3.19, "N_uptake": 212.58, "GrainN": 137.14, "EarLen_cm": 18.85, "KernelRows": 15.17, "KernelsPerRow": 46.39, "TKW_g": 10.69, "Yield_MgHa": 42.85, "AgronomicEff": 66.37, "RecoveryEff": 62.59, "PFP": 51.24, "PhysEff": null, "NUE": null}, {"Block": 2, "Thickness": "Thick_20mm", "N_rate": "N5", "PlotID": "B2_T_N5", "Soil_NH4": 34.3, "Soil_NO3": 54.78, "Mineral_N": 89.08, "Moisture": 10.35, "pH": 6.19, "EC": 0.34, "Height_cm": 284.76, "Stem_mm": 29.36, "LAI": 5.36, "SPAD": 52.97, "Biomass_MgHa": 15.88, "LeafN_pct": 3.42, "N_uptake": 207.87, "GrainN": 156.96, "EarLen_cm": 22.14, "KernelRows": 16.73, "KernelsPerRow": 42.54, "TKW_g": 12.18, "Yield_MgHa": 44.6, "AgronomicEff": 64.3, "RecoveryEff": 58.26, "PFP": 47.45, "PhysEff": null, "NUE": null}, {"Block": 3, "Thickness": "Thin_2mm", "N_rate": "N1", "PlotID": "B3_T_N1", "Soil_NH4": 11.79, "Soil_NO3": 18.79, "Mineral_N": 30.58, "Moisture": 12.59, "pH": 5.8, "EC": 0.16, "Height_cm": 181.69, "Stem_mm": 20.36, "LAI": 2.96, "SPAD": 43.64, "Biomass_MgHa": 7.21, "LeafN_pct": 2.19, "N_uptake": 94.48, "GrainN": 70.72, "EarLen_cm": 16.04, "KernelRows": 13.83, "KernelsPerRow": 31.03, "TKW_g": 5.3, "Yield_MgHa": 23.25, "AgronomicEff": 48.01, "RecoveryEff": 53.75, "PFP": 59.67, "PhysEff": null, "NUE": null}, {"Block": 3, "Thickness": "Thin_2mm", "N_rate": "N2", "PlotID": "B3_T_N2", "Soil_NH4": 16.19, "Soil_NO3": 26.08, "Mineral_N": 42.27, "Moisture": 12.34, "pH": 6.07, "EC": 0.22, "Height_cm": 232.27, "Stem_mm": 22.3, "LAI": 4.26, "SPAD": 50.26, "Biomass_MgHa": 12.66, "LeafN_pct": 2.68, "N_uptake": 139.69, "GrainN": 89.08, "EarLen_cm": 19.74, "KernelRows": 15.7, "KernelsPerRow": 32.58, "TKW_g": 8.48, "Yield_MgHa": 39.2, "AgronomicEff": 56.54, "RecoveryEff": 57.25, "PFP": 54.91, "PhysEff": null, "NUE": null}, {"Block": 3, "Thickness": "Thin_2mm", "N_rate": "N3", "PlotID": "B3_T_N3", "Soil_NH4": 23.24, "Soil_NO3": 33.47, "Mineral_N": 56.72, "Moisture": 11.02, "pH": 6.07, "EC": 0.27, "Height_cm": 263.95, "Stem_mm": 27.95, "LAI": 5.08, "SPAD": 49.52, "Biomass_MgHa": 14.62, "LeafN_pct": 2.94, "N_uptake": 172.2, "GrainN": 127.48, "EarLen_cm": 21.01, "KernelRows": 16.39, "KernelsPerRow": 36.83, "TKW_g": 9.57, "Yield_MgHa": 44.95, "AgronomicEff": 67.32, "RecoveryEff": 59.07, "PFP": 50.84, "PhysEff": null, "NUE": null}, {"Block": 3, "Thickness": "Thin_2mm", "N_rate": "N4", "PlotID": "B3_T_N4", "Soil_NH4": 28.86, "Soil_NO3": 46.58, "Mineral_N": 75.44, "Moisture": 11.19, "pH": 6.07, "EC": 0.29, "Height_cm": 255.75, "Stem_mm": 23.33, "LAI": 4.75, "SPAD": 54.1, "Biomass_MgHa": 14.33, "LeafN_pct": 3.18, "N_uptake": 195.43, "GrainN": 127.56, "EarLen_cm": 20.93, "KernelRows": 15.75, "KernelsPerRow": 41.94, "TKW_g": 10.62, "Yield_MgHa": 41.92, "AgronomicEff": 63.19, "RecoveryEff": 57.58, "PFP": 41.86, "PhysEff": null, "NUE": null}, {"Block": 3, "Thickness": "Thin_2mm", "N_rate": "N5", "PlotID": "B3_T_N5", "Soil_NH4": 37.32, "Soil_NO3": 54.79, "Mineral_N": 92.12, "Moisture": 9.64, "pH": 5.78, "EC": 0.33, "Height_cm": 246.52, "Stem_mm": 25.5, "LAI": 4.97, "SPAD": 52.67, "Biomass_MgHa": 15.48, "LeafN_pct": 3.18, "N_uptake": 193.91, "GrainN": 156.27, "EarLen_cm": 20.66, "KernelRows": 16.88, "KernelsPerRow": 41.25, "TKW_g": 10.56, "Yield_MgHa": 30.84, "AgronomicEff": 57.75, "RecoveryEff": 55.68, "PFP": 36.05, "PhysEff": null, "NUE": null}, {"Block": 3, "Thickness": "Thick_20mm", "N_rate": "N1", "PlotID": "B3_T_N1", "Soil_NH4": 11.17, "Soil_NO3": 15.24, "Mineral_N": 26.41, "Moisture": 12.77, "pH": 6.02, "EC": 0.19, "Height_cm": 179.46, "Stem_mm": 18.85, "LAI": 2.77, "SPAD": 37.84, "Biomass_MgHa": 7.41, "LeafN_pct": 1.9, "N_uptake": 85.05, "GrainN": 73.0, "EarLen_cm": 15.82, "KernelRows": 14.01, "KernelsPerRow": 30.69, "TKW_g": 5.21, "Yield_MgHa": 21.11, "AgronomicEff": 46.59, "RecoveryEff": 56.6, "PFP": 59.02, "PhysEff": null, "NUE": null}, {"Block": 3, "Thickness": "Thick_20mm", "N_rate": "N2", "PlotID": "B3_T_N2", "Soil_NH4": 15.38, "Soil_NO3": 26.1, "Mineral_N": 41.48, "Moisture": 13.0, "pH": 5.91, "EC": 0.22, "Height_cm": 232.9, "Stem_mm": 25.7, "LAI": 3.86, "SPAD": 51.69, "Biomass_MgHa": 11.91, "LeafN_pct": 2.8, "N_uptake": 153.32, "GrainN": 107.74, "EarLen_cm": 18.99, "KernelRows": 14.49, "KernelsPerRow": 38.5, "TKW_g": 8.78, "Yield_MgHa": 40.62, "AgronomicEff": 68.87, "RecoveryEff": 69.73, "PFP": 61.36, "PhysEff": null, "NUE": null}, {"Block": 3, "Thickness": "Thick_20mm", "N_rate": "N3", "PlotID": "B3_T_N3", "Soil_NH4": 24.51, "Soil_NO3": 33.01, "Mineral_N": 57.52, "Moisture": 11.43, "pH": 5.81, "EC": 0.25, "Height_cm": 239.08, "Stem_mm": 29.41, "LAI": 5.34, "SPAD": 51.66, "Biomass_MgHa": 14.33, "LeafN_pct": 3.03, "N_uptake": 204.35, "GrainN": 131.9, "EarLen_cm": 21.43, "KernelRows": 15.75, "KernelsPerRow": 41.75, "TKW_g": 10.12, "Yield_MgHa": 48.06, "AgronomicEff": 64.97, "RecoveryEff": 63.77, "PFP": 58.9, "PhysEff": null, "NUE": null}, {"Block": 3, "Thickness": "Thick_20mm", "N_rate": "N4", "PlotID": "B3_T_N4", "Soil_NH4": 28.65, "Soil_NO3": 41.51, "Mineral_N": 70.17, "Moisture": 10.5, "pH": 6.15, "EC": 0.28, "Height_cm": 285.75, "Stem_mm": 29.07, "LAI": 5.07, "SPAD": 54.68, "Biomass_MgHa": 15.44, "LeafN_pct": 3.19, "N_uptake": 201.38, "GrainN": 147.14, "EarLen_cm": 22.26, "KernelRows": 16.46, "KernelsPerRow": 47.51, "TKW_g": 10.52, "Yield_MgHa": 46.03, "AgronomicEff": 78.64, "RecoveryEff": 55.31, "PFP": 48.7, "PhysEff": null, "NUE": null}, {"Block": 3, "Thickness": "Thick_20mm", "N_rate": "N5", "PlotID": "B3_T_N5", "Soil_NH4": 34.29, "Soil_NO3": 51.39, "Mineral_N": 85.68, "Moisture": 10.2, "pH": 6.13, "EC": 0.34, "Height_cm": 263.69, "Stem_mm": 29.08, "LAI": 4.62, "SPAD": 53.52, "Biomass_MgHa": 16.0, "LeafN_pct": 3.13, "N_uptake": 199.98, "GrainN": 153.68, "EarLen_cm": 20.8, "KernelRows": 16.51, "KernelsPerRow": 44.6, "TKW_g": 10.97, "Yield_MgHa": 43.07, "AgronomicEff": 64.66, "RecoveryEff": 53.91, "PFP": 41.94, "PhysEff": null, "NUE": null}, {"Block": 4, "Thickness": "Thin_2mm", "N_rate": "N1", "PlotID": "B4_T_N1", "Soil_NH4": 12.27, "Soil_NO3": 17.52, "Mineral_N": 29.8, "Moisture": 11.94, "pH": 6.02, "EC": 0.16, "Height_cm": 185.76, "Stem_mm": 21.86, "LAI": 2.72, "SPAD": 42.31, "Biomass_MgHa": 7.15, "LeafN_pct": 2.26, "N_uptake": 93.46, "GrainN": 73.14, "EarLen_cm": 15.45, "KernelRows": 13.99, "KernelsPerRow": 29.99, "TKW_g": 5.1, "Yield_MgHa": 25.73, "AgronomicEff": 50.16, "RecoveryEff": 52.93, "PFP": 63.27, "PhysEff": null, "NUE": null}, {"Block": 4, "Thickness": "Thin_2mm", "N_rate": "N2", "PlotID": "B4_T_N2", "Soil_NH4": 17.88, "Soil_NO3": 27.61, "Mineral_N": 45.49, "Moisture": 12.22, "pH": 5.46, "EC": 0.22, "Height_cm": 252.54, "Stem_mm": 23.31, "LAI": 3.7, "SPAD": 45.67, "Biomass_MgHa": 11.27, "LeafN_pct": 2.85, "N_uptake": 152.93, "GrainN": 100.1, "EarLen_cm": 19.23, "KernelRows": 16.68, "KernelsPerRow": 35.07, "TKW_g": 8.21, "Yield_MgHa": 39.0, "AgronomicEff": 63.7, "RecoveryEff": 59.8, "PFP": 54.61, "PhysEff": null, "NUE": null}, {"Block": 4, "Thickness": "Thin_2mm", "N_rate": "N3", "PlotID": "B4_T_N3", "Soil_NH4": 24.35, "Soil_NO3": 36.45, "Mineral_N": 60.79, "Moisture": 10.28, "pH": 5.94, "EC": 0.25, "Height_cm": 260.87, "Stem_mm": 25.85, "LAI": 4.78, "SPAD": 52.06, "Biomass_MgHa": 15.79, "LeafN_pct": 3.32, "N_uptake": 178.66, "GrainN": 133.42, "EarLen_cm": 20.2, "KernelRows": 16.06, "KernelsPerRow": 41.5, "TKW_g": 10.97, "Yield_MgHa": 44.14, "AgronomicEff": 67.75, "RecoveryEff": 60.59, "PFP": 47.18, "PhysEff": null, "NUE": null}, {"Block": 4, "Thickness": "Thin_2mm", "N_rate": "N4", "PlotID": "B4_T_N4", "Soil_NH4": 30.02, "Soil_NO3": 43.48, "Mineral_N": 73.5, "Moisture": 11.2, "pH": 5.76, "EC": 0.26, "Height_cm": 258.49, "Stem_mm": 27.35, "LAI": 4.86, "SPAD": 56.4, "Biomass_MgHa": 15.29, "LeafN_pct": 3.05, "N_uptake": 198.63, "GrainN": 126.26, "EarLen_cm": 20.48, "KernelRows": 15.98, "KernelsPerRow": 42.74, "TKW_g": 10.22, "Yield_MgHa": 42.65, "AgronomicEff": 63.84, "RecoveryEff": 58.87, "PFP": 45.49, "PhysEff": null, "NUE": null}, {"Block": 4, "Thickness": "Thin_2mm", "N_rate": "N5", "PlotID": "B4_T_N5", "Soil_NH4": 34.76, "Soil_NO3": 60.39, "Mineral_N": 95.15, "Moisture": 9.68, "pH": 6.21, "EC": 0.34, "Height_cm": 269.11, "Stem_mm": 25.33, "LAI": 4.47, "SPAD": 55.64, "Biomass_MgHa": 16.01, "LeafN_pct": 3.2, "N_uptake": 224.04, "GrainN": 141.43, "EarLen_cm": 21.27, "KernelRows": 16.74, "KernelsPerRow": 41.76, "TKW_g": 10.83, "Yield_MgHa": 32.83, "AgronomicEff": 58.87, "RecoveryEff": 45.53, "PFP": 36.42, "PhysEff": null, "NUE": null}, {"Block": 4, "Thickness": "Thick_20mm", "N_rate": "N1", "PlotID": "B4_T_N1", "Soil_NH4": 9.81, "Soil_NO3": 15.69, "Mineral_N": 25.51, "Moisture": 13.29, "pH": 5.8, "EC": 0.16, "Height_cm": 170.63, "Stem_mm": 18.2, "LAI": 2.61, "SPAD": 41.28, "Biomass_MgHa": 7.01, "LeafN_pct": 2.01, "N_uptake": 83.27, "GrainN": 69.02, "EarLen_cm": 16.4, "KernelRows": 13.9, "KernelsPerRow": 29.96, "TKW_g": 5.16, "Yield_MgHa": 20.73, "AgronomicEff": 49.35, "RecoveryEff": 56.28, "PFP": 54.27, "PhysEff": null, "NUE": null}, {"Block": 4, "Thickness": "Thick_20mm", "N_rate": "N2", "PlotID": "B4_T_N2", "Soil_NH4": 16.86, "Soil_NO3": 24.41, "Mineral_N": 41.28, "Moisture": 11.06, "pH": 6.37, "EC": 0.22, "Height_cm": 248.61, "Stem_mm": 24.24, "LAI": 3.97, "SPAD": 46.13, "Biomass_MgHa": 12.79, "LeafN_pct": 2.9, "N_uptake": 145.88, "GrainN": 102.77, "EarLen_cm": 19.07, "KernelRows": 15.51, "KernelsPerRow": 36.31, "TKW_g": 8.78, "Yield_MgHa": 35.72, "AgronomicEff": 62.65, "RecoveryEff": 68.23, "PFP": 67.21, "PhysEff": null, "NUE": null}, {"Block": 4, "Thickness": "Thick_20mm", "N_rate": "N3", "PlotID": "B4_T_N3", "Soil_NH4": 21.6, "Soil_NO3": 32.8, "Mineral_N": 54.4, "Moisture": 11.87, "pH": 5.9, "EC": 0.26, "Height_cm": 283.99, "Stem_mm": 27.05, "LAI": 5.31, "SPAD": 53.05, "Biomass_MgHa": 15.66, "LeafN_pct": 3.29, "N_uptake": 194.11, "GrainN": 142.63, "EarLen_cm": 24.07, "KernelRows": 15.47, "KernelsPerRow": 40.79, "TKW_g": 10.97, "Yield_MgHa": 45.47, "AgronomicEff": 71.74, "RecoveryEff": 65.83, "PFP": 57.2, "PhysEff": null, "NUE": null}, {"Block": 4, "Thickness": "Thick_20mm", "N_rate": "N4", "PlotID": "B4_T_N4", "Soil_NH4": 28.74, "Soil_NO3": 38.75, "Mineral_N": 67.49, "Moisture": 11.42, "pH": 5.63, "EC": 0.28, "Height_cm": 257.63, "Stem_mm": 27.44, "LAI": 5.32, "SPAD": 56.23, "Biomass_MgHa": 15.68, "LeafN_pct": 3.44, "N_uptake": 221.21, "GrainN": 145.04, "EarLen_cm": 22.1, "KernelRows": 16.99, "KernelsPerRow": 43.58, "TKW_g": 10.2, "Yield_MgHa": 51.73, "AgronomicEff": 76.62, "RecoveryEff": 54.95, "PFP": 49.9, "PhysEff": null, "NUE": null}, {"Block": 4, "Thickness": "Thick_20mm", "N_rate": "N5", "PlotID": "B4_T_N5", "Soil_NH4": 34.71, "Soil_NO3": 53.46, "Mineral_N": 88.17, "Moisture": 10.33, "pH": 6.12, "EC": 0.31, "Height_cm": 264.35, "Stem_mm": 29.45, "LAI": 4.82, "SPAD": 53.12, "Biomass_MgHa": 15.98, "LeafN_pct": 2.98, "N_uptake": 208.25, "GrainN": 145.75, "EarLen_cm": 21.98, "KernelRows": 15.44, "KernelsPerRow": 41.1, "TKW_g": 10.59, "Yield_MgHa": 41.9, "AgronomicEff": 62.84, "RecoveryEff": 58.04, "PFP": 43.58, "PhysEff": null, "NUE": null}];
+const FATORES=["Block","Thickness","N_rate","PlotID","Trat"];
+const SOLO=["Soil_NH4","Soil_NO3","Mineral_N","Moisture","pH","EC"];
+const NOMES={Soil_NH4:"N-NH₄ do solo",Soil_NO3:"N-NO₃ do solo",Mineral_N:"N mineral do solo",Moisture:"Umidade do solo",pH:"pH do solo",EC:"Condutividade elétrica",
+ Height_cm:"Altura de planta (cm)",Stem_mm:"Diâmetro do colmo (mm)",LAI:"Índice de área foliar",SPAD:"Índice SPAD",Biomass_MgHa:"Biomassa (Mg/ha)",LeafN_pct:"N foliar (%)",
+ N_uptake:"Absorção de N",GrainN:"N no grão",EarLen_cm:"Comprimento da espiga (cm)",KernelRows:"Fileiras por espiga",KernelsPerRow:"Grãos por fileira",
+ TKW_g:"Massa de mil grãos (g)",Yield_MgHa:"Produtividade (Mg/ha)",AgronomicEff:"Eficiência agronômica",RecoveryEff:"Eficiência de recuperação",PFP:"Produtividade parcial do fator",PhysEff:"Eficiência fisiológica",NUE:"Eficiência de uso de N"};
+const nome=v=>NOMES[v]||v;
+const CORES=["#2F6B45","#8A5A3B","#3B6890","#A3843A","#6B4F7A"];
+const ROTULO={N_rate:"Dose de N",Thickness:"Espessura",Trat:"Tratamento",Block:"Bloco"};
+const NIVEL={admin:"Administrador",gerente:"Gerente",usuario:"Usuário"};
+const PESSOAS={admin:["Ana Ribeiro","AR"],gerente:["Carlos Mendes","CM"],usuario:["Júlia Santos","JS"]};
+const ord=(a,b)=>String(a).localeCompare(String(b),"pt",{numeric:true});
+const $=id=>document.getElementById(id);
+
+/* ---------- Utilidades ---------- */
+function toast(msg){const t=$("toast");t.textContent=msg;t.classList.add("on");clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove("on"),2800);}
+function quantil(s,p){const i=(s.length-1)*p,a=Math.floor(i),b=Math.ceil(i);return s[a]+(s[b]-s[a])*(i-a);}
+function stats(v){v=v.filter(x=>x!==null&&x!==""&&!isNaN(x)).map(Number);const n=v.length;if(!n)return null;
+ const s=[...v].sort((a,b)=>a-b),m=v.reduce((a,b)=>a+b,0)/n,dp=n>1?Math.sqrt(v.reduce((a,b)=>a+(b-m)**2,0)/(n-1)):0;
+ return{n,media:m,mediana:quantil(s,.5),dp,cv:m?dp/m*100:null,min:s[0],max:s[n-1]};}
+const r2=x=>x==null?"":Math.round(x*100)/100;
+const fmt=(x,d=2)=>x==null?"—":x.toLocaleString("pt-BR",{minimumFractionDigits:d,maximumFractionDigits:d});
+const layoutBase={margin:{l:52,r:12,t:10,b:48},paper_bgcolor:"#fff",plot_bgcolor:"#fff",font:{family:"Public Sans, Arial",color:"#17251D",size:12.5},
+ yaxis:{gridcolor:"#E7EBE6",zeroline:false},xaxis:{linecolor:"#DCE2DB"},legend:{orientation:"h",y:1.1,x:0}};
+const cfg={responsive:true,displaylogo:false,modeBarButtonsToRemove:["lasso2d","select2d","autoScale2d"],toImageButtonOptions:{format:"png",scale:2}};
+
+/* ---------- Arte do login: parcelas do ensaio ---------- */
+(function(){let h="";const cor=["#2F6B45","#3E7D55","#4F9066","#62A378","#78B68C"];
+ for(let b=0;b<4;b++)for(let p=0;p<10;p++){const x=20+p*52,y=20+b*68;h+=`<rect x="${x}" y="${y}" width="46" height="60" rx="4" fill="${cor[(p+b*3)%5]}" opacity="${.35+((p*7+b*3)%5)/10}"/>`;}
+ $("arteParcelas").innerHTML=h;})();
+
+/* ---------- Login / perfis ---------- */
+$("btnEntrar").onclick=()=>entrar($("perfilLogin").value);
+document.querySelectorAll("#formLogin input").forEach(i=>i.onkeydown=e=>{if(e.key==="Enter")entrar($("perfilLogin").value);});
+function entrar(perfil){
+ document.body.className=perfil;
+ $("nomeUsuario").textContent=PESSOAS[perfil][0];$("avatar").textContent=PESSOAS[perfil][1];$("nivelUsuario").textContent=NIVEL[perfil];
+ const h=new Date().getHours();$("saudacao").textContent=`${h<12?"Bom dia":h<18?"Boa tarde":"Boa noite"}, ${PESSOAS[perfil][0].split(" ")[0]}`;
+ $("login").style.display="none";$("app").classList.add("on");abrir("geral");
+}
+$("sair").onclick=()=>{$("app").classList.remove("on");$("login").style.display="";};
+
+/* ---------- Navegação ---------- */
+function abrir(p){
+ document.querySelectorAll(".menu button").forEach(b=>b.setAttribute("aria-current",b.dataset.p===p?"page":"false"));
+ document.querySelectorAll(".pagina").forEach(s=>s.classList.toggle("on",s.id==="p-"+p));
+ if(p==="geral")desenharGeral();
+ if(p==="camp"){iniciarMapa();setTimeout(()=>mapa&&mapa.invalidateSize(),60);}
+ if(p==="analise")desenhar();
+ if(p==="usuarios")desenharUsuarios();
+ window.scrollTo(0,0);
+}
+document.querySelectorAll(".menu button").forEach(b=>b.onclick=()=>abrir(b.dataset.p));
+
+/* ---------- Campanhas ---------- */
+const CAMPANHAS=[
+ {nome:"Ensaio milho — ureia revestida com biochar",status:"feita",data:"Nov/2025 a Mar/2026",lat:-17.79,lng:-50.92,desc:"4 blocos × 2 espessuras × 5 doses de N"},
+ {nome:"Amostragem de solo — safra 2024/25",status:"feita",data:"Jun/2025",lat:-21.18,lng:-47.81,desc:"Coleta de solo 0–20 e 20–40 cm"},
+ {nome:"Avaliação de vegetação — soja",status:"feita",data:"Fev/2025",lat:-24.95,lng:-53.46,desc:"Biomassa, SPAD e IAF"},
+ {nome:"Ensaio milho safrinha — repetição",status:"futura",data:"Fev/2027",dia:"10",mes:"FEV",lat:-17.85,lng:-51.05,desc:"Repetição do ensaio com biochar"},
+ {nome:"Amostragem de solo pós-colheita",status:"futura",data:"Abr/2027",dia:"05",mes:"ABR",lat:-12.54,lng:-55.72,desc:"Nitrogênio residual no perfil"}
+];
+let mapa=null,mapaMini=null,camadaCamp=null,filtroCamp="todas",novoPonto=null,modoNovo=false;
+const corCamp=c=>c.status==="feita"?"#2F6B45":"#3B6890";
+function marcador(c){return L.circleMarker([c.lat,c.lng],{radius:9,color:"#fff",weight:2,fillColor:corCamp(c),fillOpacity:1})
+ .bindPopup(`<b>${c.nome}</b><br><span class="tag ${c.status}">${c.status==="feita"?"Realizada":"Prevista"}</span> ${c.data}<br><small>${c.desc||""}</small>`);}
+function tiles(m){L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:18,attribution:"© OpenStreetMap"}).addTo(m);}
+function iniciarMapa(){
+ if(typeof L==="undefined"){$("mapa").innerHTML='<p class="nota" style="padding:20px">Conecte-se à internet para carregar o mapa.</p>';return;}
+ if(!mapa){mapa=L.map("mapa").setView([-18.5,-51.5],5);tiles(mapa);
+  mapa.on("click",e=>{if(!modoNovo)return;novoPonto=e.latlng;modoNovo=false;$("modoMapa").style.display="none";$("modalCamp").classList.add("on");$("cNome").focus();});}
+ desenharCamp();
+}
+function desenharCamp(){
+ if(camadaCamp)camadaCamp.remove();camadaCamp=L.layerGroup().addTo(mapa);
+ const lista=$("listaCamp");lista.innerHTML="";
+ CAMPANHAS.filter(c=>filtroCamp==="todas"||c.status===filtroCamp).forEach(c=>{
+  const m=marcador(c).addTo(camadaCamp);
+  const li=document.createElement("li");
+  li.innerHTML=`<b>${c.nome}</b><span><span class="tag ${c.status}">${c.status==="feita"?"Realizada":"Prevista"}</span> ${c.data}</span>`;
+  li.onclick=()=>{mapa.flyTo([c.lat,c.lng],9,{duration:.8});setTimeout(()=>m.openPopup(),800);};
+  lista.appendChild(li);});
+}
+$("filtroCamp").onclick=e=>{const b=e.target.closest("button");if(!b)return;filtroCamp=b.dataset.f;
+ [...$("filtroCamp").children].forEach(x=>x.setAttribute("aria-pressed",x===b));desenharCamp();};
+$("btnNovaCamp").onclick=()=>{modoNovo=true;$("modoMapa").style.display="block";};
+$("btnSalvarCamp").onclick=()=>{if(!$("cNome").value.trim()||!$("cData").value.trim()){toast("Preencha o nome e o período da campanha");return;}
+ CAMPANHAS.push({nome:$("cNome").value,data:$("cData").value,status:$("cStatus").value,desc:$("cDesc").value,lat:novoPonto.lat,lng:novoPonto.lng});
+ ["cNome","cData","cDesc"].forEach(i=>$(i).value="");$("modalCamp").classList.remove("on");desenharCamp();toast("Campanha salva");};
+document.querySelectorAll("[data-fechar]").forEach(b=>b.onclick=()=>{b.closest(".fundo-modal").classList.remove("on");modoNovo=false;$("modoMapa").style.display="none";});
+
+/* ---------- Visão geral ---------- */
+function desenharGeral(){
+ const feitas=CAMPANHAS.filter(c=>c.status==="feita").length,fut=CAMPANHAS.length-feitas;
+ const temY=VARIAVEIS.includes("Yield_MgHa");let melhor=null;
+ if(temY){const g={};DADOS.forEach(d=>(g[d.Trat]=g[d.Trat]||[]).push(d.Yield_MgHa));
+  Object.entries(g).forEach(([k,v])=>{const s=stats(v);if(s&&(!melhor||s.media>melhor.m))melhor={k,m:s.media};});}
+ const y=temY?stats(DADOS.map(d=>d.Yield_MgHa)):null;
+ $("kpisGeral").innerHTML=`
+  <div class="kpi"><span>Campanhas realizadas</span><strong>${feitas}</strong><small>${fut} previstas</small></div>
+  <div class="kpi"><span>Parcelas no ensaio</span><strong>${DADOS.length}</strong><small>${VARIAVEIS.length} variáveis medidas</small></div>
+  <div class="kpi"><span>Produtividade média</span><strong>${y?fmt(y.media,1):"—"}</strong><small>Mg/ha · CV ${y?fmt(y.cv,1):"—"}%</small></div>
+  <div class="kpi destaque"><span>Maior produtividade</span><strong>${melhor?fmt(melhor.m,1):"—"}</strong><small>${melhor?melhor.k.replace(" · "," com dose "):""}</small></div>`;
+ if(temY&&window.Plotly){
+  const esp=unicos("Thickness"),doses=unicos("N_rate");
+  Plotly.react("graficoGeral",esp.map((e,i)=>{const ss=doses.map(d=>stats(DADOS.filter(x=>x.Thickness===e&&x.N_rate===d).map(x=>x.Yield_MgHa)));
+   return{type:"scatter",mode:"lines+markers",name:e,x:doses,y:ss.map(s=>s&&s.media),error_y:{type:"data",array:ss.map(s=>s&&s.dp),thickness:1.2,width:4},line:{color:CORES[i],width:2.5},marker:{size:8}};}),
+   {...layoutBase,yaxis:{...layoutBase.yaxis,title:"Mg/ha"}},cfg);}
+ $("proximas").innerHTML=CAMPANHAS.filter(c=>c.status==="futura").map(c=>`<div class="prox"><div class="data-box">${c.dia||"--"}<small>${c.mes||""}</small></div><div><b>${c.nome}</b><span>${c.desc||c.data}</span></div></div>`).join("");
+ if(typeof L!=="undefined"){if(!mapaMini){mapaMini=L.map("mapaMini",{zoomControl:false,attributionControl:false}).setView([-18.5,-51.5],4);tiles(mapaMini);}
+  mapaMini.eachLayer(l=>{if(l instanceof L.CircleMarker)l.remove();});CAMPANHAS.forEach(c=>marcador(c).addTo(mapaMini));setTimeout(()=>mapaMini.invalidateSize(),60);}
+}
+
+/* ---------- Dados e filtros ---------- */
+let VARIAVEIS=[],tipoGraf="box";
+function unicos(c){return[...new Set(DADOS.map(d=>d[c]))].sort(ord);}
+function prepararDados(){
+ DADOS.forEach(d=>d.Trat=`${d.Thickness} · ${d.N_rate}`);
+ VARIAVEIS=Object.keys(DADOS[0]).filter(k=>!FATORES.includes(k)&&DADOS.some(d=>typeof d[k]==="number"&&!isNaN(d[k])));
+ const sel=$("selVar");sel.innerHTML="";
+ [["Solo",VARIAVEIS.filter(v=>SOLO.includes(v))],["Vegetação e produção",VARIAVEIS.filter(v=>!SOLO.includes(v))]].forEach(([g,vs])=>{
+  if(!vs.length)return;const og=document.createElement("optgroup");og.label=g;
+  vs.forEach(v=>{const o=document.createElement("option");o.value=v;o.textContent=nome(v);og.appendChild(o);});sel.appendChild(og);});
+ if(VARIAVEIS.includes("Yield_MgHa"))sel.value="Yield_MgHa";
+ checks("fEsp",unicos("Thickness"),v=>v);checks("fBloco",unicos("Block"),v=>"Bloco "+v);checks("fDose",unicos("N_rate"),v=>v);
+ const vazias=Object.keys(DADOS[0]).filter(k=>!FATORES.includes(k)&&!VARIAVEIS.includes(k));
+ $("introAnalise").textContent=`${DADOS.length} parcelas e ${VARIAVEIS.length} variáveis.`+(vazias.length?` Sem dados: ${vazias.join(", ")}.`:"");
+}
+function checks(id,vals,rot){const el=$(id);el.innerHTML="";
+ vals.forEach(v=>{const l=document.createElement("label");l.innerHTML=`<input type="checkbox" checked value="${v}">${rot(v)}`;el.appendChild(l);});el.onchange=desenhar;}
+const marcados=id=>[...document.querySelectorAll(`#${id} input:checked`)].map(i=>i.value);
+function filtrados(){const e=marcados("fEsp"),b=marcados("fBloco"),n=marcados("fDose");
+ return DADOS.filter(d=>e.includes(String(d.Thickness))&&b.includes(String(d.Block))&&n.includes(String(d.N_rate)));}
+
+/* ---------- Análise ---------- */
+function desenhar(){
+ if(!$("p-analise").classList.contains("on"))return;
+ const v=$("selVar").value,g=$("selGrupo").value,dados=filtrados(),geral=stats(dados.map(d=>d[v]));
+ $("kpisVar").innerHTML=[["Média",geral&&geral.media],["Mediana",geral&&geral.mediana],["Desvio padrão",geral&&geral.dp],["CV (%)",geral&&geral.cv]]
+  .map(([k,x],i)=>`<div class="kpi${i===0?" destaque":""}"><span>${k}</span><strong${k==="CV (%)"&&x>20?' style="color:var(--alerta)"':""}>${fmt(x)}</strong><small>${geral?geral.n+" parcelas":"sem dados"}</small></div>`).join("");
+ $("tituloGraf").textContent=nome(v);
+ $("descGraf").textContent=`Agrupado por ${ROTULO[g]}`+(g==="N_rate"?", separado por espessura":"")+". Cada ponto é uma parcela.";
+ const grupos=[...new Set(dados.map(d=>d[g]))].sort(ord),rot=k=>g==="Block"?"Bloco "+k:String(k);
+ let traces,layout={...layoutBase,yaxis:{...layoutBase.yaxis,title:nome(v)}};
+ const series=g==="N_rate"?unicos("Thickness").filter(e=>dados.some(d=>d.Thickness===e)).map(e=>({nome:e,dados:dados.filter(d=>d.Thickness===e),x:d=>d.N_rate}))
+  :[{nome:"",dados,x:d=>rot(d[g])}];
+ if(tipoGraf==="box"){
+  traces=g==="N_rate"?series.map((s,i)=>({type:"box",name:s.nome,x:s.dados.map(s.x),y:s.dados.map(d=>d[v]),marker:{color:CORES[i%5],size:5},line:{width:1.5},boxpoints:"all",jitter:.35,pointpos:0}))
+   :grupos.map((k,i)=>({type:"box",name:rot(k),y:dados.filter(d=>d[g]===k).map(d=>d[v]),marker:{color:CORES[i%5],size:5},line:{width:1.5},boxpoints:"all",jitter:.35,pointpos:0}));
+  layout.boxmode="group";layout.showlegend=g==="N_rate";
+ }else{
+  traces=series.map((s,i)=>{const ks=[...new Set(s.dados.map(s.x))].sort(ord),ss=ks.map(k=>stats(s.dados.filter(d=>s.x(d)===k).map(d=>d[v])));
+   return{type:"bar",name:s.nome,x:ks,y:ss.map(z=>z&&z.media),error_y:{type:"data",array:ss.map(z=>z&&z.dp),thickness:1.2,width:5,color:"#17251D"},marker:{color:g==="N_rate"?CORES[i%5]:ks.map((_,j)=>CORES[j%5])}};});
+  layout.barmode="group";layout.showlegend=g==="N_rate";layout.bargap=.3;
+ }
+ if(window.Plotly)Plotly.react("grafico",traces,layout,{...cfg,toImageButtonOptions:{format:"png",scale:2,filename:v}});
+ const linhas=grupos.map(k=>({k:rot(k),s:stats(dados.filter(d=>d[g]===k).map(d=>d[v]))}));
+ $("tabStats").innerHTML=`<thead><tr><th class="e">${ROTULO[g]}</th><th>N</th><th>Média</th><th>Mediana</th><th>Desvio padrão</th><th>CV (%)</th><th>Mínimo</th><th>Máximo</th></tr></thead><tbody>`+
+  linhas.concat(geral?[{k:"Geral",s:geral,t:1}]:[]).filter(l=>l.s).map(l=>`<tr${l.t?' class="total"':""}><td class="e">${l.k}</td><td>${l.s.n}</td><td>${fmt(l.s.media)}</td><td>${fmt(l.s.mediana)}</td><td>${fmt(l.s.dp)}</td><td class="${l.s.cv>20?"cv-alto":""}">${fmt(l.s.cv)}</td><td>${fmt(l.s.min)}</td><td>${fmt(l.s.max)}</td></tr>`).join("")+"</tbody>";
+}
+["selVar","selGrupo"].forEach(id=>$(id).onchange=desenhar);
+$("tipoGraf").onclick=e=>{const b=e.target.closest("button");if(!b)return;tipoGraf=b.dataset.t;[...$("tipoGraf").children].forEach(x=>x.setAttribute("aria-pressed",x===b));desenhar();};
+
+/* ---------- Download ---------- */
+function tabelaStats(dados,grupo){const out=[];
+ VARIAVEIS.forEach(v=>{(grupo?[...new Set(dados.map(d=>d[grupo]))].sort(ord):[null]).forEach(k=>{
+  const s=stats((k===null?dados:dados.filter(d=>d[grupo]===k)).map(d=>d[v]));if(!s)return;
+  const l={"Categoria":SOLO.includes(v)?"Solo":"Vegetação","Variável":nome(v)};if(grupo)l[ROTULO[grupo]]=k;
+  Object.assign(l,{"N":s.n,"Média":r2(s.media),"Mediana":r2(s.mediana),"Desvio padrão":r2(s.dp),"CV (%)":r2(s.cv),"Mínimo":r2(s.min),"Máximo":r2(s.max)});out.push(l);});});
+ return out;}
+$("btnBaixar").onclick=()=>{const dados=filtrados(),wb=XLSX.utils.book_new();
+ [["Por tratamento","Trat"],["Por espessura","Thickness"],["Por dose de N","N_rate"],["Por bloco","Block"],["Geral",null]].forEach(([n,g])=>{
+  const ws=XLSX.utils.json_to_sheet(tabelaStats(dados,g));ws["!cols"]=[{wch:11},{wch:30},{wch:20},...Array(8).fill({wch:14})];XLSX.utils.book_append_sheet(wb,ws,n);});
+ XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(dados.map(({Trat,...r})=>r)),"Dados filtrados");
+ XLSX.writeFile(wb,"estatisticas_solo_vegetacao.xlsx");toast("Planilha de estatísticas baixada");};
+
+/* ---------- Importar ---------- */
+$("btnImportar").onclick=()=>$("arq").click();
+$("arq").onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();
+ r.onload=ev=>{const wb=XLSX.read(new Uint8Array(ev.target.result),{type:"array"});
+  const novos=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:null});
+  const faltam=["Block","Thickness","N_rate"].filter(c=>!novos.length||!(c in novos[0]));
+  if(faltam.length){toast("A planilha precisa das colunas: "+faltam.join(", "));return;}
+  DADOS=novos;prepararDados();desenhar();toast(`Planilha importada: ${novos.length} parcelas`);};
+ r.readAsArrayBuffer(f);e.target.value="";};
+
+/* ---------- Usuários ---------- */
+const USUARIOS=[["Ana Ribeiro","ana@pesquisa.org","admin","Hoje"],["Carlos Mendes","carlos@pesquisa.org","gerente","Ontem"],
+ ["Júlia Santos","julia@pesquisa.org","usuario","Há 3 dias"],["Pedro Alves","pedro@pesquisa.org","usuario","Há 1 semana"]];
+function desenharUsuarios(){$("tabUsuarios").innerHTML=USUARIOS.map((u,i)=>`<tr><td class="e"><b>${u[0]}</b></td><td class="e">${u[1]}</td>
+ <td class="e"><select class="ctl" style="width:auto;padding:5px 8px" data-i="${i}" ${i===0?"disabled":""}>${Object.entries(NIVEL).map(([k,n])=>`<option value="${k}"${k===u[2]?" selected":""}>${n}</option>`).join("")}</select></td><td class="e">${u[3]}</td></tr>`).join("");
+ $("tabUsuarios").querySelectorAll("select").forEach(s=>s.onchange=()=>{USUARIOS[s.dataset.i][2]=s.value;toast(`${USUARIOS[s.dataset.i][0]} agora é ${NIVEL[s.value]}`);});}
+$("btnConvidar").onclick=()=>{$("modalUser").classList.add("on");$("uNome").focus();};
+$("btnEnviarConvite").onclick=()=>{if(!$("uNome").value.trim()||!$("uEmail").value.includes("@")){toast("Informe o nome e um e-mail válido");return;}
+USUARIOS.push([$("uNome").value,$("uEmail").value,$("uNivel").value,"Convite enviado"]);
+ ["uNome","uEmail"].forEach(i=>$(i).value="");$("modalUser").classList.remove("on");desenharUsuarios();toast("Convite enviado");};
+document.addEventListener("keydown",e=>{if(e.key==="Escape")document.querySelectorAll(".fundo-modal.on").forEach(m=>m.classList.remove("on"));});
+
+prepararDados();
+</script>
+</body>
+</html>
